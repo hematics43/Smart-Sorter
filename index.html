@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Sorter Pro+</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f4f7fb;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      background: #fff;
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
+      display: block;
+      margin-bottom: 6px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      resize: vertical;
+      margin-bottom: 15px;
+    }
+    select {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .options label {
+      font-size: 13px;
+      font-weight: normal;
+    }
+    .options input {
+      margin-right: 4px;
+    }
+    .view-toggle {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .view-toggle button {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      background: #e4e9f2;
+      color: #333;
+      transition: background 0.3s;
+    }
+    .view-toggle button.active {
+      background: #4a90e2;
+      color: white;
+    }
+    #result {
+      background: #f9fafc;
+      padding: 12px;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      font-size: 14px;
+      min-height: 40px;
+      white-space: pre-wrap;
+    }
+    #count {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>✨ Smart Sorter Pro+</h2>
+    
+    <label for="input">Enter words or numbers:</label>
+    <textarea id="input" placeholder="e.g. apple, banana, 42, 7"></textarea>
+
+    <label for="order">Sort order:</label>
+    <select id="order">
+      <option value="auto" selected>Auto Detect (Live)</option>
+      <option value="alphaAsc">Alphabetical (A → Z)</option>
+      <option value="alphaDesc">Alphabetical (Z → A)</option>
+      <option value="numAsc">Numeric (Small → Large)</option>
+      <option value="numDesc">Numeric (Large → Small)</option>
+      <option value="original">Original Order</option>
+      <option value="reverse">Reverse Original</option>
+      <option value="shuffle">Shuffle (Random)</option>
+    </select>
+
+    <div class="options">
+      <label><input type="checkbox" id="unique"> Remove Duplicates</label>
+      <label><input type="checkbox" id="uppercase"> UPPERCASE</label>
+      <label><input type="checkbox" id="lowercase"> lowercase</label>
+      <label><input type="checkbox" id="capitalize"> Capitalize</label>
+    </div>
+
+    <div class="view-toggle">
+      <button id="inlineBtn" class="active">Inline View</button>
+      <button id="listBtn">List View</button>
+    </div>
+
+    <label>Result:</label>
+    <div id="result">⚠️ Start typing above…</div>
+    <div id="count"></div>
+  </div>
+
+  <script>
+    const inputEl = document.getElementById("input");
+    const orderEl = document.getElementById("order");
+    const uniqueEl = document.getElementById("unique");
+    const upperEl = document.getElementById("uppercase");
+    const lowerEl = document.getElementById("lowercase");
+    const capEl = document.getElementById("capitalize");
+    const resultEl = document.getElementById("result");
+    const countEl = document.getElementById("count");
+    const inlineBtn = document.getElementById("inlineBtn");
+    const listBtn = document.getElementById("listBtn");
+
+    let viewMode = "inline"; // default
+
+    function capitalizeWord(word) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+
+    function detectDataType(items) {
+      let numbers = 0;
+      let words = 0;
+      items.forEach(item => {
+        if (!isNaN(parseFloat(item)) && isFinite(item)) {
+          numbers++;
+        } else {
+          words++;
+        }
+      });
+      return numbers > words ? "numeric" : "text";
+    }
+
+    function sortItems() {
+      let input = inputEl.value.trim();
+      let order = orderEl.value;
+
+      if (!input) {
+        resultEl.textContent = "⚠️ Please enter some values.";
+        countEl.textContent = "";
+        saveState();
+        return;
+      }
+
+      let items = input.split(/[\s,]+/).filter(Boolean);
+
+      if (uniqueEl.checked) {
+        items = [...new Set(items)];
+      }
+
+      if (order === "auto") {
+        const type = detectDataType(items);
+        if (type === "numeric") {
+          order = "numAsc";
+        } else {
+          order = "alphaAsc";
+        }
+      }
+
+      let sorted;
+      switch(order) {
+        case "alphaAsc":
+          sorted = [...items].sort((a, b) => a.localeCompare(b));
+          break;
+        case "alphaDesc":
+          sorted = [...items].sort((a, b) => b.localeCompare(a));
+          break;
+        case "numAsc":
+          sorted = [...items].sort((a, b) => parseFloat(a) - parseFloat(b));
+          break;
+        case "numDesc":
+          sorted = [...items].sort((a, b) => parseFloat(b) - parseFloat(a));
+          break;
+        case "reverse":
+          sorted = [...items].reverse();
+          break;
+        case "shuffle":
+          sorted = [...items].sort(() => Math.random() - 0.5);
+          break;
+        default:
+          sorted = items;
+      }
+
+      if (upperEl.checked) {
+        sorted = sorted.map(x => x.toUpperCase());
+      } else if (lowerEl.checked) {
+        sorted = sorted.map(x => x.toLowerCase());
+      } else if (capEl.checked) {
+        sorted = sorted.map(x => capitalizeWord(x));
+      }
+
+      resultEl.textContent = (viewMode === "list") ? sorted.join("\n") : sorted.join(", ");
+      countEl.textContent = `Count: ${sorted.length}`;
+
+      saveState();
+    }
+
+    // Save state to localStorage
+    function saveState() {
+      const state = {
+        input: inputEl.value,
+        order: orderEl.value,
+        unique: uniqueEl.checked,
+        uppercase: upperEl.checked,
+        lowercase: lowerEl.checked,
+        capitalize: capEl.checked,
+        viewMode: viewMode
+      };
+      localStorage.setItem("smartSorterState", JSON.stringify(state));
+    }
+
+    // Load state from localStorage
+    function loadState() {
+      const state = JSON.parse(localStorage.getItem("smartSorterState"));
+      if (!state) return;
+
+      inputEl.value = state.input || "";
+      orderEl.value = state.order || "auto";
+      uniqueEl.checked = state.unique || false;
+      upperEl.checked = state.uppercase || false;
+      lowerEl.checked = state.lowercase || false;
+      capEl.checked = state.capitalize || false;
+      viewMode = state.viewMode || "inline";
+
+      if (viewMode === "list") {
+        listBtn.classList.add("active");
+        inlineBtn.classList.remove("active");
+      } else {
+        inlineBtn.classList.add("active");
+        listBtn.classList.remove("active");
+      }
+
+      sortItems();
+    }
+
+    // Toggle view
+    inlineBtn.addEventListener("click", () => {
+      viewMode = "inline";
+      inlineBtn.classList.add("active");
+      listBtn.classList.remove("active");
+      sortItems();
+    });
+
+    listBtn.addEventListener("click", () => {
+      viewMode = "list";
+      listBtn.classList.add("active");
+      inlineBtn.classList.remove("active");
+      sortItems();
+    });
+
+    [inputEl, orderEl, uniqueEl, upperEl, lowerEl, capEl].forEach(el => {
+      el.addEventListener("input", sortItems);
+      el.addEventListener("change", sortItems);
+    });
+
+    // Load state when page opens
+    window.addEventListener("load", loadState);
+  </script>
+</body>
+</html>
