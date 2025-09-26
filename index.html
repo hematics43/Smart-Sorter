@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Smart Sorter Pro++ with Inline History</title>
+  <title>Smart Sorter Pro++ (Colorful + Comma Toggle)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     * { box-sizing: border-box; }
@@ -53,6 +53,7 @@
       margin-bottom: 12px;
       border-radius: 8px;
       border: 1px solid #ddd;
+      cursor: pointer;
     }
     .options {
       display: flex;
@@ -64,24 +65,31 @@
       font-size: 13px;
       font-weight: normal;
     }
-    #toggleViewBtn {
+    #toggleViewBtn, #toggleCommaBtn {
       background: #4a90e2;
       color: white;
       border: none;
       font-weight: bold;
-      cursor: pointer;
     }
     #result {
       background: #f9fafc;
       padding: 12px;
       border: 1px solid #eee;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 15px;
       min-height: 40px;
-      white-space: pre-wrap;
       margin-bottom: 10px;
       cursor: pointer;
       user-select: text;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .item {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      color: #fff;
     }
     #result.copied { background: #d4f8d4; transition: background 0.5s; }
     #count {
@@ -94,25 +102,8 @@
       color: white;
       border: none;
       font-weight: bold;
-      cursor: pointer;
-      margin-bottom: 20px;
     }
     #clearBtn:hover { background: #d9363e; }
-    #historyBox {
-      background: #fafafa;
-      border: 1px solid #eee;
-      border-radius: 8px;
-      padding: 10px;
-      max-height: 250px;
-      overflow-y: auto;
-      font-size: 14px;
-    }
-    .history-entry {
-      padding: 8px;
-      border-bottom: 1px solid #ddd;
-    }
-    .history-entry:last-child { border-bottom: none; }
-    .history-time { font-size: 12px; color: #777; margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -145,15 +136,13 @@
     </div>
 
     <button id="toggleViewBtn">Switch to List View</button>
+    <button id="toggleCommaBtn">Hide Commas</button>
 
     <label>Result (double-click to copy):</label>
     <div id="result">⚠️ Start typing above…</div>
     <div id="count"></div>
 
     <button id="clearBtn">🗑️ Clear Saved Data</button>
-
-    <h3>📜 History</h3>
-    <div id="historyBox"></div>
   </div>
 
   <script>
@@ -168,10 +157,16 @@
     const countEl = document.getElementById("count");
     const clearBtn = document.getElementById("clearBtn");
     const toggleViewBtn = document.getElementById("toggleViewBtn");
-    const historyBox = document.getElementById("historyBox");
+    const toggleCommaBtn = document.getElementById("toggleCommaBtn");
 
     let viewMode = "inline";
-    let history = JSON.parse(localStorage.getItem("smartSorterHistory")) || [];
+    let showCommas = true;
+
+    const colors = [
+      "#e74c3c","#3498db","#2ecc71","#9b59b6",
+      "#f39c12","#1abc9c","#e67e22","#34495e",
+      "#16a085","#d35400","#c0392b","#2980b9"
+    ];
 
     function capitalizeWord(word) {
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
@@ -217,37 +212,25 @@
       else if (capEl.checked) sorted = sorted.map(x=>capitalizeWord(x));
       if (reverseEachEl.checked) sorted = sorted.map(x=>x.split("").reverse().join(""));
 
-      resultEl.textContent = viewMode==="list" ? sorted.join("\n") : sorted.join(", ");
-      countEl.textContent = `Count: ${sorted.length}`;
+      // colorful rendering
+      resultEl.innerHTML = "";
+      sorted.forEach((item, i) => {
+        const span = document.createElement("span");
+        span.className = "item";
+        span.style.backgroundColor = colors[i % colors.length];
+        span.textContent = item;
+        resultEl.appendChild(span);
 
-      addToHistory(resultEl.textContent);
-      saveState();
-    }
-
-    function addToHistory(text) {
-      if (!text || text.startsWith("⚠️")) return;
-      const now = new Date();
-      const entry = {
-        time: now.toLocaleString(),
-        text: text
-      };
-      history.unshift(entry);
-      localStorage.setItem("smartSorterHistory", JSON.stringify(history));
-      renderHistory();
-    }
-
-    function renderHistory() {
-      historyBox.innerHTML = "";
-      if (history.length === 0) {
-        historyBox.innerHTML = "<p>No history yet.</p>";
-        return;
-      }
-      history.forEach(entry => {
-        const div = document.createElement("div");
-        div.className = "history-entry";
-        div.innerHTML = `<div class="history-time">${entry.time}</div><div>${entry.text.replace(/\n/g,"<br>")}</div>`;
-        historyBox.appendChild(div);
+        if (viewMode === "inline" && i < sorted.length-1 && showCommas) {
+          const comma = document.createElement("span");
+          comma.textContent = ", ";
+          resultEl.appendChild(comma);
+        }
+        if (viewMode === "list") resultEl.appendChild(document.createElement("br"));
       });
+
+      countEl.textContent = `Count: ${sorted.length}`;
+      saveState();
     }
 
     function saveState() {
@@ -256,7 +239,7 @@
         unique: uniqueEl.checked, uppercase: upperEl.checked,
         lowercase: lowerEl.checked, capitalize: capEl.checked,
         reverseEach: reverseEachEl.checked,
-        viewMode
+        viewMode, showCommas
       };
       localStorage.setItem("smartSorterState", JSON.stringify(state));
     }
@@ -272,7 +255,9 @@
       capEl.checked = state.capitalize || false;
       reverseEachEl.checked = state.reverseEach || false;
       viewMode = state.viewMode || "inline";
+      showCommas = state.showCommas ?? true;
       toggleViewBtn.textContent = viewMode==="list" ? "Switch to Inline View" : "Switch to List View";
+      toggleCommaBtn.textContent = showCommas ? "Hide Commas" : "Show Commas";
       sortItems();
     }
 
@@ -282,7 +267,9 @@
       orderEl.value = "auto";
       uniqueEl.checked = upperEl.checked = lowerEl.checked = capEl.checked = reverseEachEl.checked = false;
       viewMode="inline";
+      showCommas=true;
       toggleViewBtn.textContent = "Switch to List View";
+      toggleCommaBtn.textContent = "Hide Commas";
       resultEl.textContent="⚠️ Start typing above…";
       countEl.textContent="";
     });
@@ -293,9 +280,17 @@
       sortItems();
     });
 
+    toggleCommaBtn.addEventListener("click", () => {
+      showCommas = !showCommas;
+      toggleCommaBtn.textContent = showCommas ? "Hide Commas" : "Show Commas";
+      sortItems();
+    });
+
     resultEl.addEventListener("dblclick", () => {
-      const text = resultEl.textContent.trim();
-      if (text && !text.startsWith("⚠️")) {
+      const text = Array.from(resultEl.querySelectorAll(".item"))
+                        .map(el=>el.textContent)
+                        .join(viewMode==="list" ? "\n" : (showCommas ? ", " : " "));
+      if (text) {
         navigator.clipboard.writeText(text).then(() => {
           resultEl.classList.add("copied");
           setTimeout(() => resultEl.classList.remove("copied"), 800);
@@ -308,10 +303,7 @@
       el.addEventListener("change", sortItems);
     });
 
-    window.addEventListener("load", () => {
-      loadState();
-      renderHistory();
-    });
+    window.addEventListener("load", loadState);
   </script>
 </body>
 </html>
