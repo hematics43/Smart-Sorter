@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Smart Sorter Pro+</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Sorter Pro++</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     * { box-sizing: border-box; }
     body {
@@ -19,7 +19,7 @@
     .container {
       background: #fff;
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -38,7 +38,7 @@
     }
     textarea {
       width: 100%;
-      height: 100px;
+      height: 120px;
       padding: 10px;
       font-size: 14px;
       border: 1px solid #ddd;
@@ -46,7 +46,7 @@
       resize: vertical;
       margin-bottom: 15px;
     }
-    select {
+    select, button {
       width: 100%;
       padding: 12px;
       font-size: 15px;
@@ -64,29 +64,18 @@
       font-size: 13px;
       font-weight: normal;
     }
-    .options input {
-      margin-right: 4px;
-    }
-    .view-toggle {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .view-toggle button {
-      flex: 1;
-      padding: 10px;
-      font-size: 14px;
+    #toggleViewBtn {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
-      background: #e4e9f2;
-      color: #333;
-      transition: background 0.3s;
-    }
-    .view-toggle button.active {
       background: #4a90e2;
       color: white;
+      transition: background 0.3s;
+      margin-bottom: 12px;
     }
     #result {
       background: #f9fafc;
@@ -96,24 +85,25 @@
       font-size: 14px;
       min-height: 40px;
       white-space: pre-wrap;
+      margin-bottom: 10px;
+      cursor: pointer;
+      user-select: text;
+    }
+    #result.copied {
+      background: #d4f8d4;
+      transition: background 0.5s;
     }
     #count {
-      margin-top: 8px;
       font-size: 13px;
       color: #666;
+      margin-bottom: 15px;
     }
     #clearBtn {
-      margin-top: 15px;
-      width: 100%;
-      padding: 12px;
       background: #ff4d4f;
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
       font-weight: bold;
       cursor: pointer;
-      transition: background 0.3s;
     }
     #clearBtn:hover {
       background: #d9363e;
@@ -122,7 +112,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>✨ Smart Sorter Pro+</h2>
+    <h2>✨ Smart Sorter Pro++</h2>
     
     <label for="input">Enter words or numbers:</label>
     <textarea id="input" placeholder="e.g. apple, banana, 42, 7"></textarea>
@@ -137,6 +127,8 @@
       <option value="original">Original Order</option>
       <option value="reverse">Reverse Original</option>
       <option value="shuffle">Shuffle (Random)</option>
+      <option value="lengthAsc">By Length (Short → Long)</option>
+      <option value="lengthDesc">By Length (Long → Short)</option>
     </select>
 
     <div class="options">
@@ -144,14 +136,12 @@
       <label><input type="checkbox" id="uppercase"> UPPERCASE</label>
       <label><input type="checkbox" id="lowercase"> lowercase</label>
       <label><input type="checkbox" id="capitalize"> Capitalize</label>
+      <label><input type="checkbox" id="reverseEach"> Reverse Each Word</label>
     </div>
 
-    <div class="view-toggle">
-      <button id="inlineBtn" class="active">Inline View</button>
-      <button id="listBtn">List View</button>
-    </div>
+    <button id="toggleViewBtn">Switch to List View</button>
 
-    <label>Result:</label>
+    <label>Result (double-click to copy):</label>
     <div id="result">⚠️ Start typing above…</div>
     <div id="count"></div>
 
@@ -165,13 +155,13 @@
     const upperEl = document.getElementById("uppercase");
     const lowerEl = document.getElementById("lowercase");
     const capEl = document.getElementById("capitalize");
+    const reverseEachEl = document.getElementById("reverseEach");
     const resultEl = document.getElementById("result");
     const countEl = document.getElementById("count");
-    const inlineBtn = document.getElementById("inlineBtn");
-    const listBtn = document.getElementById("listBtn");
     const clearBtn = document.getElementById("clearBtn");
+    const toggleViewBtn = document.getElementById("toggleViewBtn");
 
-    let viewMode = "inline"; // default
+    let viewMode = "inline";
 
     function capitalizeWord(word) {
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
@@ -179,13 +169,7 @@
 
     function detectDataType(items) {
       let numbers = 0, words = 0;
-      items.forEach(item => {
-        if (!isNaN(parseFloat(item)) && isFinite(item)) {
-          numbers++;
-        } else {
-          words++;
-        }
-      });
+      items.forEach(item => !isNaN(parseFloat(item)) ? numbers++ : words++);
       return numbers > words ? "numeric" : "text";
     }
 
@@ -201,44 +185,41 @@
       }
 
       let items = input.split(/[\s,]+/).filter(Boolean);
-
       if (uniqueEl.checked) items = [...new Set(items)];
 
-      if (order === "auto") {
-        const type = detectDataType(items);
-        order = (type === "numeric") ? "numAsc" : "alphaAsc";
-      }
+      if (order === "auto") order = detectDataType(items) === "numeric" ? "numAsc" : "alphaAsc";
 
       let sorted;
       switch(order) {
-        case "alphaAsc": sorted = [...items].sort((a, b) => a.localeCompare(b)); break;
-        case "alphaDesc": sorted = [...items].sort((a, b) => b.localeCompare(a)); break;
-        case "numAsc": sorted = [...items].sort((a, b) => parseFloat(a) - parseFloat(b)); break;
-        case "numDesc": sorted = [...items].sort((a, b) => parseFloat(b) - parseFloat(a)); break;
+        case "alphaAsc": sorted = [...items].sort((a,b)=>a.localeCompare(b)); break;
+        case "alphaDesc": sorted = [...items].sort((a,b)=>b.localeCompare(a)); break;
+        case "numAsc": sorted = [...items].sort((a,b)=>parseFloat(a)-parseFloat(b)); break;
+        case "numDesc": sorted = [...items].sort((a,b)=>parseFloat(b)-parseFloat(a)); break;
         case "reverse": sorted = [...items].reverse(); break;
-        case "shuffle": sorted = [...items].sort(() => Math.random() - 0.5); break;
+        case "shuffle": sorted = [...items].sort(()=>Math.random()-0.5); break;
+        case "lengthAsc": sorted = [...items].sort((a,b)=>a.length-b.length); break;
+        case "lengthDesc": sorted = [...items].sort((a,b)=>b.length-a.length); break;
         default: sorted = items;
       }
 
-      if (upperEl.checked) sorted = sorted.map(x => x.toUpperCase());
-      else if (lowerEl.checked) sorted = sorted.map(x => x.toLowerCase());
-      else if (capEl.checked) sorted = sorted.map(x => capitalizeWord(x));
+      if (upperEl.checked) sorted = sorted.map(x=>x.toUpperCase());
+      else if (lowerEl.checked) sorted = sorted.map(x=>x.toLowerCase());
+      else if (capEl.checked) sorted = sorted.map(x=>capitalizeWord(x));
 
-      resultEl.textContent = (viewMode === "list") ? sorted.join("\n") : sorted.join(", ");
+      if (reverseEachEl.checked) sorted = sorted.map(x=>x.split("").reverse().join(""));
+
+      resultEl.textContent = viewMode==="list" ? sorted.join("\n") : sorted.join(", ");
       countEl.textContent = `Count: ${sorted.length}`;
-
       saveState();
     }
 
     function saveState() {
       const state = {
-        input: inputEl.value,
-        order: orderEl.value,
-        unique: uniqueEl.checked,
-        uppercase: upperEl.checked,
-        lowercase: lowerEl.checked,
-        capitalize: capEl.checked,
-        viewMode: viewMode
+        input: inputEl.value, order: orderEl.value,
+        unique: uniqueEl.checked, uppercase: upperEl.checked,
+        lowercase: lowerEl.checked, capitalize: capEl.checked,
+        reverseEach: reverseEachEl.checked,
+        viewMode
       };
       localStorage.setItem("smartSorterState", JSON.stringify(state));
     }
@@ -246,58 +227,47 @@
     function loadState() {
       const state = JSON.parse(localStorage.getItem("smartSorterState"));
       if (!state) return;
-
       inputEl.value = state.input || "";
       orderEl.value = state.order || "auto";
       uniqueEl.checked = state.unique || false;
       upperEl.checked = state.uppercase || false;
       lowerEl.checked = state.lowercase || false;
       capEl.checked = state.capitalize || false;
+      reverseEachEl.checked = state.reverseEach || false;
       viewMode = state.viewMode || "inline";
-
-      if (viewMode === "list") {
-        listBtn.classList.add("active");
-        inlineBtn.classList.remove("active");
-      } else {
-        inlineBtn.classList.add("active");
-        listBtn.classList.remove("active");
-      }
-
+      toggleViewBtn.textContent = viewMode==="list" ? "Switch to Inline View" : "Switch to List View";
       sortItems();
     }
 
-    // Clear everything
     clearBtn.addEventListener("click", () => {
       localStorage.removeItem("smartSorterState");
       inputEl.value = "";
       orderEl.value = "auto";
-      uniqueEl.checked = false;
-      upperEl.checked = false;
-      lowerEl.checked = false;
-      capEl.checked = false;
-      viewMode = "inline";
-      inlineBtn.classList.add("active");
-      listBtn.classList.remove("active");
-      resultEl.textContent = "⚠️ Start typing above…";
-      countEl.textContent = "";
+      uniqueEl.checked = upperEl.checked = lowerEl.checked = capEl.checked = reverseEachEl.checked = false;
+      viewMode="inline";
+      toggleViewBtn.textContent = "Switch to List View";
+      resultEl.textContent="⚠️ Start typing above…";
+      countEl.textContent="";
     });
 
-    // View toggle
-    inlineBtn.addEventListener("click", () => {
-      viewMode = "inline";
-      inlineBtn.classList.add("active");
-      listBtn.classList.remove("active");
+    toggleViewBtn.addEventListener("click", () => {
+      viewMode = viewMode==="inline" ? "list" : "inline";
+      toggleViewBtn.textContent = viewMode==="list" ? "Switch to Inline View" : "Switch to List View";
       sortItems();
     });
 
-    listBtn.addEventListener("click", () => {
-      viewMode = "list";
-      listBtn.classList.add("active");
-      inlineBtn.classList.remove("active");
-      sortItems();
+    // ✅ Double click to copy result
+    resultEl.addEventListener("dblclick", () => {
+      const text = resultEl.textContent.trim();
+      if (text && text !== "⚠️ Please enter some values." && text !== "⚠️ Start typing above…") {
+        navigator.clipboard.writeText(text).then(() => {
+          resultEl.classList.add("copied");
+          setTimeout(() => resultEl.classList.remove("copied"), 800);
+        });
+      }
     });
 
-    [inputEl, orderEl, uniqueEl, upperEl, lowerEl, capEl].forEach(el => {
+    [inputEl, orderEl, uniqueEl, upperEl, lowerEl, capEl, reverseEachEl].forEach(el=>{
       el.addEventListener("input", sortItems);
       el.addEventListener("change", sortItems);
     });
